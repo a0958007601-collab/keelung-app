@@ -1,4 +1,5 @@
 Js
+alert("JS 已載入");
 (() => {
   const OFFICIAL = "https://green-cycle.klcg.gov.tw/"; // 官方即時地圖
   const $ = (id) => document.getElementById(id);
