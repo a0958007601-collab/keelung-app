@@ -1,5 +1,4 @@
 Js
-alert("JS 已載入");
 (() => {
   const OFFICIAL = "https://green-cycle.klcg.gov.tw/"; // 官方即時地圖
   const $ = (id) => document.getElementById(id);
@@ -229,4 +228,176 @@ alert("JS 已載入");
   syncQuickLinks();
   renderFavs();
   renderRems();
+})();
+// ===== Live tracking (Map + positions) =====
+(function liveTracking() {
+  const mapEl = document.getElementById("map");
+  const pill = document.getElementById("livePill");
+  const info = document.getElementById("liveInfo");
+  const btnCenterAnle = document.getElementById("btnCenterAnle");
+  const btnRefreshNow = document.getElementById("btnRefreshNow");
+
+  // 如果你還沒把「即時追蹤地圖」那段 HTML 加到 index.html，這裡會找不到元素，直接略過
+  if (!mapEl || !pill || !info) return;
+
+  // Leaflet 若未載入也略過
+  if (!window.L) {
+    pill.textContent = "● 地圖庫未載入";
+    info.textContent = "請確認 index.html 已加入 Leaflet CSS/JS。";
+    return;
+  }
+
+  const KEELUNG_CENTER = [25.128, 121.741];
+  const ANLE_CENTER = [25.132, 121.728];
+
+  const map = L.map("map").setView(KEELUNG_CENTER, 13);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19,
+    attribution: "© OpenStreetMap",
+  }).addTo(map);
+
+  const markers = new Map();
+
+  function setPill(t, ok = true) {
+    pill.textContent = t;
+    pill.style.opacity = ok ? "1" : "0.7";
+  }
+
+  function pick(obj, keys) {
+    for (const k of keys) {
+      if (obj && obj[k] !== undefined && obj[k] !== null && obj[k] !== "") return obj[k];
+    }
+    return null;
+  }
+
+  function toNum(v) {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  }
+
+  function guessLatLng(item) {
+    const lat = toNum(pick(item, ["lat", "Lat", "LAT", "Latitude", "latitude", "Y", "y"]));
+    const lng = toNum(pick(item, ["lng", "Lon", "LON", "Longitude", "longitude", "X", "x"]));
+    return (lat && lng) ? [lat, lng] : null;
+  }
+
+  function guessId(item, idx) {
+    return String(
+      pick(item, ["id", "ID", "carId", "CarID", "truckId", "TruckID", "車號", "Plate", "plate", "plateNo"])
+      ?? idx
+    );
+  }
+
+  function guessLabel(item, id) {
+    const plate = pick(item, ["車號", "Plate", "plate", "plateNo"]);
+    const status = pick(item, ["狀態", "Status", "status"]);
+    const route = pick(item, ["路線", "Route", "route", "RouteName", "routeName"]);
+    const parts = [];
+    if (plate) parts.push(`車號:${plate}`);
+    if (route) parts.push(`路線:${route}`);
+    if (status) parts.push(`狀態:${status}`);
+    return parts.length ? parts.join(" / ") : `車輛 ${id}`;
+  }
+
+  // ⚠️ 重要：Vercel 代理會 502，所以先試著從官方站找資料端點（若能）
+  // 你之後若能提供官方地圖實際抓資料的 API，我可以把 URL 換成正確的。
+  const CANDIDATES = [
+    // 先保留你之前嘗試的主機（可能會被 Mixed Content 擋）
+    "http://210.61.25.6/BSTruckMIS/subsystem/JSon/keelungposition.ashx",
+    // 可能的同源（如果官方站有轉發/代理）
+    "https://green-cycle.klcg.gov.tw/api/position",
+    "https://green-cycle.klcg.gov.tw/position",
+  ];
+
+  async function fetchText(url) {
+    const r = await fetch(url, { cache: "no-store" });
+    return await r.text();
+  }
+
+  async function fetchPositions() {
+    setPill("● 更新中…");
+    info.textContent = "";
+
+    let lastErr = null;
+    let text = null;
+    let usedUrl = null;
+
+    for (const url of CANDIDATES) {
+      try {
+        text = await fetchText(url);
+        usedUrl = url;
+        break;
+      } catch (e) {
+        lastErr = e;
+      }
+    }
+
+    if (!text) {
+      setPill("● 更新失敗", false);
+      const msg = String(lastErr || "");
+      if (msg.includes("Mixed Content") || msg.includes("blocked")) {
+        info.textContent =
+          "瀏覽器擋下 HTTP 資料（Mixed Content）。要做真正即時追蹤，需要改成：① Android 原生 App（WebView + 本機代理）或 ② 放在台灣本地伺服器/Cloudflare Worker 做 HTTPS 代理。";
+      } else {
+        info.textContent =
+          "讀取資料失敗。可能是端點不存在或被阻擋。你可以把「官方即時地圖」打開後的網頁網址貼給我，我來找它真正的資料 API。";
+      }
+      return;
+    }
+
+    // 嘗試 parse JSON（資料可能是 array 或包在某個欄位）
+    let data;
+    try { data = JSON.parse(text); } catch { data = null; }
+
+    if (!data) {
+      setPill("● 格式不明", false);
+      info.textContent = `拿到資料但不是 JSON。使用來源：${usedUrl}`;
+      return;
+    }
+
+    const arr = Array.isArray(data) ? data
+      : Array.isArray(data?.data) ? data.data
+      : Array.isArray(data?.Data) ? data.Data
+      : Array.isArray(data?.rows) ? data.rows
+      : [];
+
+    let plotted = 0;
+    const seen = new Set();
+
+    arr.forEach((item, idx) => {
+      const ll = guessLatLng(item);
+      if (!ll) return;
+
+      const id = guessId(item, idx);
+      seen.add(id);
+
+      const label = guessLabel(item, id);
+
+      if (!markers.has(id)) {
+        const m = L.marker(ll).addTo(map);
+        m.bindPopup(label);
+        markers.set(id, m);
+      } else {
+        markers.get(id).setLatLng(ll);
+      }
+      plotted++;
+    });
+
+    for (const [id, m] of markers.entries()) {
+      if (!seen.has(id)) {
+        map.removeLayer(m);
+        markers.delete(id);
+      }
+    }
+
+    const now = new Date();
+    setPill("● 已更新");
+    info.textContent = `更新時間：${now.toLocaleString("zh-Hant-TW")}｜顯示車輛：${plotted} 台｜來源：${usedUrl}`;
+  }
+
+  btnCenterAnle?.addEventListener("click", () => map.setView(ANLE_CENTER, 14));
+  btnRefreshNow?.addEventListener("click", fetchPositions);
+
+  fetchPositions();
+  setInterval(fetchPositions, 10000);
 })();
