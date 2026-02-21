@@ -1,13 +1,1 @@
 
-{
-  "rewrites": [
-    {
-      "source": "/api/position",
-      "destination": "https://210.61.25.6/BSTruckMIS/subsystem/JSon/keelungposition.ashx"
-    },
-    {
-      "source": "/api/route",
-      "destination": "https://210.61.25.6/BSTruckMIS/subsystem/JSon/keelungroute.ashx"
-    }
-  ]
-}
