@@ -1,18 +1,92 @@
 Html
-<!DOCTYPE html>
-<html>
+<!doctype html>
+<html lang="zh-Hant">
 <head>
-<meta charset="UTF-8">
-<title>基隆垃圾車追蹤</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="theme-color" content="#0b1220" />
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="stylesheet" href="/styles.css" />
+  <title>基隆垃圾車追蹤</title>
 </head>
-<body style="font-family:Arial;padding:20px">
-<h1>🚛 基隆垃圾車追蹤 App</h1>
+<body>
+  <header class="top">
+    <div class="dot"></div>
+    <div class="title">
+      <h1>基隆垃圾車追蹤</h1>
+      <div class="sub">安樂區優先｜收藏站點｜到點提醒（App 開著時）</div>
+    </div>
+  </header>
 
-<a href="https://green-cycle.klcg.gov.tw/" target="_blank"
-style="display:inline-block;padding:12px;border:1px solid #ccc;border-radius:10px;text-decoration:none;">
-開啟官方垃圾車即時查詢
-</a>
+  <main class="wrap">
+    <section class="card">
+      <div class="row between">
+        <div>
+          <div class="h">快捷</div>
+          <div class="muted">「安樂區」會優先開你收藏中名稱以「安樂區」開頭的第一筆。</div>
+        </div>
+        <span class="pill" id="netPill">● 線上</span>
+      </div>
 
-<p>測試版已成功部署 🎉</p>
+      <div class="row gap mt12">
+        <a class="btn" id="btnAnle" target="_blank" rel="noreferrer">安樂區｜一鍵開啟</a>
+        <a class="btn secondary" id="btnOfficial" target="_blank" rel="noreferrer">官方即時地圖</a>
+      </div>
+
+      <div class="row gap mt10">
+        <button class="btn secondary" id="btnInstall" style="display:none">安裝到主畫面</button>
+        <button class="btn secondary" id="btnNotify">啟用通知</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="row between">
+        <div>
+          <div class="h">⭐ 我的最愛（收藏）</div>
+          <div class="muted">先到官方地圖找到站點/路線後，複製網址貼進來。</div>
+        </div>
+        <button class="btn secondary" id="btnAddSample">加入安樂區範例</button>
+      </div>
+
+      <div class="grid mt12">
+        <input id="favName" placeholder="名稱（例：安樂區-我家、安樂區-基金一路）" />
+        <input id="favUrl" placeholder="貼上官方地圖站點/路線 URL（或留空＝官方首頁）" />
+        <button class="btn" id="btnAddFav">加入收藏</button>
+      </div>
+
+      <div id="favList" class="grid mt12"></div>
+    </section>
+
+    <section class="card">
+      <div class="h">⏰ 到點提醒（PoC）</div>
+      <div class="muted">提醒是本機排程：App/分頁要保持開著才會準時跳通知。</div>
+
+      <div class="grid mt12">
+        <select id="remTarget">
+          <option value="">（預設）官方即時地圖</option>
+        </select>
+
+        <div class="row gap">
+          <div class="col">
+            <div class="muted mb6">提醒時間</div>
+            <input id="remTime" type="time" />
+          </div>
+          <div class="col2">
+            <div class="muted mb6">提醒標題</div>
+            <input id="remTitle" placeholder="例：垃圾車快到了，出門！" value="基隆垃圾車提醒" />
+          </div>
+        </div>
+
+        <button class="btn" id="btnAddRem">新增提醒</button>
+        <div id="remList" class="grid"></div>
+      </div>
+    </section>
+
+    <footer class="foot muted">
+      想做「真的在我們地圖上顯示垃圾車位置/ETA」：下一步需要取得官方即時地圖背後的公開資料端點（若有）。
+    </footer>
+  </main>
+
+  <script src="/app.js"></script>
 </body>
 </html>
